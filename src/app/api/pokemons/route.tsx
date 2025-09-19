@@ -40,8 +40,6 @@ interface PokemonListItem {
   types: string[]
 }
 
-// src/app/api/pokemons/route.tsx
-// Actualizar interface ApiResponse
 interface ApiResponse {
   pokemons: PokemonListItem[]
   total: number
@@ -62,21 +60,48 @@ export async function GET(request: NextRequest) {
   const limit = parseInt(searchParams.get('limit') || '20')
   const page = parseInt(searchParams.get('page') || '1')
   const search = searchParams.get('search') || ''
-  
+
   // Calcular offset basado en la página
   const offset = (page - 1) * limit
-  
+
   try {
     // Obtener lista básica con offset
     const res = await fetch(`https://pokeapi.co/api/v2/pokemon?limit=${limit}&offset=${offset}`, {
       cache: 'force-cache'
     })
-    
-    // ... resto del código igual ...
-    
+
+    if (!res.ok) {
+      throw new Error('Error al obtener pokémons')
+    }
+
+    const data: PokemonApiListResponse = await res.json()
+
+    // Enriquecer con detalles
+    const enrichedPokemons = await Promise.all(
+      data.results.map(async (pokemon: PokemonApiListItem) => {
+        const detailRes = await fetch(pokemon.url, { cache: 'force-cache' })
+        const detail: PokemonDetailResponse = await detailRes.json()
+
+        return {
+          name: detail.name,
+          url: pokemon.url,
+          id: detail.id,
+          image: detail.sprites.front_default,
+          types: detail.types.map((t: PokemonType) => t.type.name)
+        }
+      })
+    )
+
+    // Filtrar por búsqueda si existe
+    const filteredPokemons = search
+      ? enrichedPokemons.filter(p =>
+          p.name.toLowerCase().includes(search.toLowerCase())
+        )
+      : enrichedPokemons
+
     // Calcular información de paginación
     const totalPages = Math.ceil(data.count / limit)
-    
+
     const response: ApiResponse = {
       pokemons: filteredPokemons,
       total: data.count,
@@ -90,9 +115,8 @@ export async function GET(request: NextRequest) {
         offset
       }
     }
-    
+
     return NextResponse.json(response)
-    
   } catch (error) {
     console.error('Error:', error)
     return NextResponse.json(

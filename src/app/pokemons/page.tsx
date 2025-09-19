@@ -4,6 +4,8 @@ import { PokemonCard } from '../../components/PokemonCard'
 import { SearchPokemon } from '../../components/SearchPokemon'
 import { Pagination } from '../../components/Pagination'
 
+
+
 // Actualizar interface ApiResponse
 interface ApiResponse {
   pokemons: Pokemon[]
